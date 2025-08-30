@@ -32,6 +32,8 @@ export const useForm = (initialForm = {}, formValidations = {}) => {
       console.log("entra");
       // Manejar selección de fecha
 
+      console.log(event);
+      
       setFormState({
         ...formState,
         date: getDateInternationalized(event),

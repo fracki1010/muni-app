@@ -1,0 +1,145 @@
+import {
+  Button,
+  Chip,
+  Spinner,
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+  Tooltip,
+} from "@heroui/react";
+import { ArrowCircleDown, ArrowCircleUp } from "@mui/icons-material";
+import React, { useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { getDisplayUnit } from "../helpers/getUnitToShow";
+import { formatLongDate, formatShortDate } from "../helpers";
+import { EyeIcon } from "./TableInfoComponent";
+import { setActiveMovement } from "../store/resource/resourceSlice";
+import { useIsMobile } from "../hooks/useIsMobile";
+
+export const TableMovementsComponents = ({ onOpen }) => {
+  const { movements } = useSelector((state) => state.resource);
+  const [selectedTable, setSelectedTable] = useState([]);
+
+  const {isMobile} = useIsMobile();
+
+  const dispatch = useDispatch();
+
+  const onDeleteSelected = () => {
+    dispatch(startDeletingResources(selectedTable));
+    dispatch(startLoadingResources());
+  };
+
+  const onSelectionChange = (e) => {
+    const arraySelected = [];
+    if (e === "all") {
+      for (let entrada of movements) {
+        arraySelected.push(entrada.id);
+      }
+    } else {
+      for (let entrada of e.entries()) {
+        arraySelected.push(entrada[0]);
+      }
+    }
+    setSelectedTable(arraySelected);
+  };
+  return (
+    <Table
+      className=" max-w-[100%] "
+      color="primary"
+      selectionMode="none"
+      isHeaderSticky
+      aria-label="Tabla de recursos"
+      bottomContentPlacement="inside"
+      // onSelectionChange={(e) => console.log(e.size)
+      onSelectionChange={(e) => onSelectionChange(e)}
+    >
+      <TableHeader>
+        <TableColumn>FECHA</TableColumn>
+        <TableColumn>RECURSO</TableColumn>
+        <TableColumn>{isMobile ? "CANT" : "CANTIDAD"}</TableColumn>
+        <TableColumn>{isMobile ? "MOV" : "MOVIMIENTO"}</TableColumn>
+        <TableColumn>ACTIONS</TableColumn>
+      </TableHeader>
+
+      {movements.length === 0 ? (
+        <TableBody emptyContent={"No hay recursos"}>{[]}</TableBody>
+      ) : (
+        <TableBody isLoading={<Spinner />}>
+          {movements.map((item) => {
+            return (
+              <TableRow key={item?.id || item?.name} c>
+                <TableCell>{formatShortDate(item?.date, false)}</TableCell>
+                <TableCell>{item?.resourceId?.name}</TableCell>
+                <TableCell>
+                  {`${item?.quantity} 
+                (${
+                  item?.resourceId?.unit &&
+                  getDisplayUnit(item?.resourceId?.unit)
+                })`}
+                </TableCell>
+                {/* <TableCell className="w-10">
+                  <Button
+                    color="primary"
+                    variant="light"
+                    className=" hover:text-content1"
+                    size="sm"
+                    onPress={(e) => {
+                      onOpenDrawerInfo(e);
+                      dispatch(startSearchingInputAndOutputById(item.id));
+                    }}
+                  >
+                    <Visibility />
+                  </Button>
+                </TableCell> */}
+                <TableCell>
+                  {isMobile ? (
+                    item?.typeMovement == "input" ? (
+                      <ArrowCircleDown color="success" />
+                    ) : (
+                      <ArrowCircleUp color="error" />
+                    )
+                  ) : (
+                    <Chip
+                      title={item?.typeMovement}
+                      variant="faded"
+                      color={
+                        item?.typeMovement == "input" ? "success" : "danger"
+                      }
+                      startContent={
+                        item?.typeMovement == "input" ? (
+                          <ArrowCircleDown />
+                        ) : (
+                          <ArrowCircleUp />
+                        )
+                      }
+                    >
+                      {item?.typeMovement == "input" ? "Entrada" : "Salida"}
+                    </Chip>
+                  )}
+                </TableCell>
+                <TableCell className="w-10">
+                  <div className="relative flex items-center justify-center gap-2">
+                    <Tooltip content="Detalles">
+                      <span
+                        className="text-lg text-default-400 cursor-pointer active:opacity-50"
+                        onClick={() => {
+                          dispatch(setActiveMovement(item));
+                          onOpen();
+                        }}
+                      >
+                        <EyeIcon />
+                      </span>
+                    </Tooltip>
+                  </div>
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      )}
+    </Table>
+  );
+};

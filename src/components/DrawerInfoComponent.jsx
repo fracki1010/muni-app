@@ -15,13 +15,14 @@ import {
 } from "@heroui/react";
 
 import { useSelector } from "react-redux";
-import { isMobile } from "../helpers/isMobile";
 
+import { formatLongDate } from "../helpers";
+import { useIsMobile } from "../hooks/useIsMobile";
 
-export const DrawerInfoComponent = ({ isOpen, onOpenChange, isOut = false, title }) => {
-
-    let isMobileDrawer = isMobile();
-    const { activeResource } = useSelector((state) => state.resource);
+export const DrawerInfoComponent = ({ isOpen, onOpenChange, title }) => {
+  let {isMobile} = useIsMobile();
+  const { activeMovement } = useSelector((state) => state.resource);
+  
 
   return (
     <Drawer
@@ -29,66 +30,108 @@ export const DrawerInfoComponent = ({ isOpen, onOpenChange, isOut = false, title
       isKeyboardDismissDisabled={true}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      placement={ isMobileDrawer ? "bottom" : "left"}
-      size={ isMobileDrawer ? "lg" : "sm"}
+      placement={isMobile ? "bottom" : "left"}
+      size={isMobile ? "lg" : "md"}
     >
       <DrawerContent className="">
         {(onClose) => (
           <>
-            <DrawerBody className="flex items-start justify-center">
-                <div className="max-w-xl mx-auto p-8  w-full">
-                  {activeResource.delete && <Alert className="mt-14 mb-6" variant="solid" color="danger" title='Este recurso fue eliminado' />}
-                  <h2 className="text-2xl text-primary font-semibold mb-4">
-                    {title}
-                  </h2>
+            <DrawerBody className="flex items-start justify-center p-3">
+              <div className="max-w-xl mx-auto p-8  w-full">
+                {activeMovement?.delete && (
+                  <Alert
+                    className="mt-14 mb-6"
+                    variant="solid"
+                    color="danger"
+                    title="Este recurso fue eliminado"
+                  />
+                )}
+                <h2 className="text-2xl text-primary font-semibold mb-4">
+                  {title}
+                </h2>
 
+                <div className="mb-4">
+                  <strong className="block text-primary font-medium">
+                    Movimiento realizado por: 
+                  </strong>
+                  <p className="mt-1 text-white">{activeMovement?.user?.name}</p>
+                </div>
 
-                  <div className="mb-4">
-                    <strong className="block text-primary font-medium">
-                      Nombre:
-                    </strong>
-                    <p className="mt-1 text-white">{activeResource.name}</p>
-                  </div>
+                <div className="mb-4">
+                  <strong className="block text-primary font-medium">
+                    Cantidad:
+                  </strong>
+                  <p className="mt-1 text-white">{activeMovement?.quantity}</p>
+                </div>
 
-                  <div className="mb-4">
-                    <strong className="block text-primary font-medium">
-                      Cantidad:
-                    </strong>
-                    <p className="mt-1 text-white">{activeResource.quantity}</p>
-                  </div>
+                <div className="mb-4">
+                  <strong className="block text-primary font-medium">
+                    Fecha:
+                  </strong>
+                  <p className="mt-1 text-white">
+                    {formatLongDate(activeMovement?.date)}
+                  </p>
+                </div>
 
-                  <div className="mb-4">
-                    <strong className="block text-primary font-medium">
-                      Unidad:
-                    </strong>
-                    <p className="mt-1 text-white">{activeResource.unit}</p>
-                  </div>
-                  <div className="mb-4">
-                    <strong className="block text-primary font-medium">
-                      Fecha de Creación:
-                    </strong>
-                    <p className="mt-1 text-white">{activeResource.date}</p>
-                  </div>
+                <div className="mb-4">
+                  <strong className="block text-primary font-medium">
+                    Fecha de Creación:
+                  </strong>
+                  <p className="mt-1 text-white">
+                    {formatLongDate(activeMovement?.dateCreation)}
+                  </p>
+                </div>
 
+                <div>
+                  <strong className="block text-primary font-medium">
+                    Descripción:
+                  </strong>
+                  <p className="mt-1 text-white">
+                    {activeMovement?.description || "No hay descripcion"}
+                  </p>
+                </div>
+
+                {activeMovement.withdrawer ? (
                   <div>
-                    <strong className="block text-primary font-medium">
-                      Descripción:
-                    </strong>
-                    <p className="mt-1 text-white">
-                      {activeResource.description || "No hay descripcion"}
-                    </p>
-                  </div>
-
-                  <div className={ !isOut ? 'hidden' : undefined} >
                     <strong className="block text-primary font-medium">
                       Retirado por:
                     </strong>
                     <p className="mt-1 text-white">
-                      {activeResource.withdrawer || "No se espesifico"}
+                      {activeMovement?.withdrawer || "No se espesifico"}
                     </p>
                   </div>
-                </div>
+                ) : (
+                  <></>
+                )}
 
+                {activeMovement.worker ? (
+                  <div>
+                    <strong className="block text-primary font-medium">
+                      Retirado por:
+                    </strong>
+                    <p className="mt-1 text-white">
+                      {activeMovement?.withdrawer || "No se espesifico"}
+                    </p>
+                  </div>
+                ) : (
+                  <></>
+                )}
+
+                {activeMovement.workerId ? (
+                  <div className="mt-2">
+                    <strong className="block text-primary font-medium">
+                      Retirado por:
+                    </strong>
+                    <p className="mt-1 text-white">
+                      {activeMovement?.workerId?.displayName || "No se espesifico"}
+                    </p>
+                  </div>
+                ) : (
+                  <></>
+                )}
+
+
+              </div>
             </DrawerBody>
             <DrawerFooter>
               <Button color="danger" variant="light" onPress={onClose}>

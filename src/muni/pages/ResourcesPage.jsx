@@ -12,8 +12,17 @@ import { DrawerInputComponent } from "../../components/DrawerInputComponent";
 import { useDispatch, useSelector } from "react-redux";
 import { startLoadingResources } from "../../store/resource/thunks";
 import { DrawerInfoComponent } from "../../components/DrawerInfoComponent";
+import {
+  DrawerInputResourceComponents,
+  TableResourcesComponents,
+} from "../../components";
+import { DrawerEditResourceComponent } from "../../components/DrawerEditResourceComponent";
+import { useMuniStore } from "../../hooks/useMuniStore";
 
 export const ResourcesPage = () => {
+
+  const { startLoadingResourcesLite } = useMuniStore();
+
   const [searchActive, setSearchActive] = useState(false);
   const {
     isOpen: isOpenDrawerInfo,
@@ -24,14 +33,13 @@ export const ResourcesPage = () => {
 
   const dispatch = useDispatch();
 
-  const { alertMessage } = useSelector((state) => state.resource);
-
-  const { filterResources } = useSelector((state) => state.resource);
+  const { alertMessage, errorMessage } = useSelector((state) => state.resource);
 
   const onOpenDrawerInfoButton = () => {
     onOpenDrawerInfo;
   };
 
+  //Alerta a mensajes de exito
   useEffect(() => {
     alertMessage &&
       addToast({
@@ -42,8 +50,21 @@ export const ResourcesPage = () => {
       });
   }, [alertMessage]);
 
+
+  //Alerta a mensajes de error
   useEffect(() => {
-    dispatch(startLoadingResources());
+    errorMessage &&
+      addToast({
+        title: errorMessage,
+        icon: <Error />,
+        variant: "solid",
+        color: "danger",
+      });
+  }, [errorMessage]);
+
+  useEffect(() => {
+    // dispatch(startLoadingResources());
+    startLoadingResourcesLite();
   }, []);
 
   return (
@@ -89,24 +110,20 @@ export const ResourcesPage = () => {
             <Apps />
             </div> */}
 
-            <TableListComponent
+            {/* <TableListComponent
               array={filterResources}
               is="resources"
               onOpenDrawerInfo={onOpenDrawerInfo}
-            />
+            /> */}
+            <TableResourcesComponents onOpenDrawer={onOpenDrawerInfo} />
           </div>
         </div>
       </div>
-      <DrawerInputComponent
+      <DrawerInputResourceComponents
         isOpen={isOpen}
         onOpenChange={onOpenChange}
-        title="Entrada"
       />
-      <DrawerInfoComponent
-        isOpen={isOpenDrawerInfo}
-        onOpenChange={onOpenChangeDrawerInfo}
-        title='Detalles del Recurso'
-      />
+
     </>
   );
 };

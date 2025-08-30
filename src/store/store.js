@@ -2,6 +2,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { authSlice } from "./auth/authSlice";
 import { QueryDocumentSnapshot } from "firebase/firestore";
 import { resourceSlice } from "./resource/resourceSlice";
+import { workerSlice } from "./worker/workerSlice";
 
 
 
@@ -23,6 +24,7 @@ export const store = configureStore({
   reducer: {
     auth: authSlice.reducer,
     resource: resourceSlice.reducer,
+    worker: workerSlice.reducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

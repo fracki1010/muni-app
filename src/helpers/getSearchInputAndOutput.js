@@ -1,8 +1,8 @@
 import { doc, getDoc } from "firebase/firestore";
 import { FirebaseDB } from "../firebase/config";
 
-export const getSearchInputAndOutput = async (id, isInput = true) => {
-  const docRef = doc(FirebaseDB, isInput ? "inputs" : "outputs", id); // Referencia al documento
+export const getSearchMovement = async (id) => {
+  const docRef = doc(FirebaseDB, 'movements', id); // Referencia al documento
   const docSnap = await getDoc(docRef); // Obtener el documento
 
   let docSearch;

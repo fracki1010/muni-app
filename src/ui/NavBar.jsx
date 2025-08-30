@@ -12,17 +12,21 @@ import {
 } from "@heroui/react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { useDispatch, useSelector } from "react-redux";
-import { startLogout } from "../store/auth/thunks";
+import { useAuthStore } from "../hooks/useAuthStore";
+import { DropdownProfile } from "./DropdownProfile";
+import imageLogo from "./../../assets/muni-app.png";
+// import { startLogout } from "../store/auth/thunks";
 
 const menuItems = [
   { name: "Dashboard", path: "/dashboard" },
   { name: "Recursos", path: "/resources" },
-  { name: "Entradas", path: "/stockIn" },
-  { name: "Salidas", path: "/stockOut" },
+  { name: "Movimientos", path: "/movements" },
+  { name: "Trabajadores", path: "/workers" },
 ];
 
 export const NavBar = () => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const { startLogout } = useAuthStore();
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,7 +34,8 @@ export const NavBar = () => {
   const dispatch = useDispatch();
 
   const logout = () => {
-     dispatch(startLogout()); 
+    //  dispatch(startLogout()); 
+    startLogout();
   }
 
   return (
@@ -49,7 +54,7 @@ export const NavBar = () => {
         <NavbarContent className="sm:hidden pr-3" justify="center">
           <NavbarBrand>
             <img
-              src="./../../../assets/muni-app.png"
+              src={imageLogo}
               alt="logo"
               height={100}
               width={100}
@@ -60,8 +65,8 @@ export const NavBar = () => {
         <NavbarContent className="hidden sm:flex gap-4" justify="center">
           <NavbarBrand>
             <img
-              src="./../../../assets/muni-app.png"
-              alt="logo"
+              src={imageLogo}
+              alt="logo2"
               height={100}
               width={100}
             />
@@ -87,9 +92,10 @@ export const NavBar = () => {
         </NavbarContent>
 
         <NavbarContent justify="end">
-          <Button color="warning" onPress={logout} variant="flat">
+          {/* <Button color="warning" onPress={logout} variant="flat">
             Logout
-          </Button>
+          </Button> */}
+          <DropdownProfile/>
         </NavbarContent>
         {/* <NavbarContent justify="end">
           <NavbarItem className="hidden lg:flex">

@@ -1,4 +1,5 @@
 import {
+  arrayUnion,
   collection,
   doc,
   getDoc,
@@ -6,46 +7,100 @@ import {
   orderBy,
   query,
   setDoc,
+  updateDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
 import { FirebaseDB } from "../../firebase/config";
 import {
+  addNewMovement,
   addNewResource,
   addNewStockIn,
   addNewStockOut,
   clearActiveResource,
+  setActiveMovement,
   setActiveResource,
   setAlertMessage,
   setErrorMessage,
-  setInputs,
   setIsLoading,
-  setOutputs,
+  setMovements,
   setResources,
 } from "./resourceSlice";
 import { getResourceSearch } from "../../helpers/getResourceSearch";
-import { getSearchInputAndOutput } from "../../helpers/getSearchInputAndOutput";
+// import { getSearchInputAndOutput } from "../../helpers/getSearchInputAndOutput";
 import firebase from "firebase/compat/app";
 import { useSelector } from "react-redux";
+import { getActiveResources } from "../../helpers/getActiveResources";
+import { getResourceById, getResourcesSearchByName, getSearchMovement } from "../../helpers";
+
+export const startAddInput = () => {
+  return async (dispatch, getState) => {
+    dispatch(setIsLoading(true)); // Inicia la carga
+
+    try {
+      const { activeMovement } = getState().resource;
+      if (!activeMovement) throw new Error("No hay un movimiento activo.");
+
+      // Obtener referencia del recurso relacionado desde caché primero
+      const { resourceDocRef, resourceSearch } = await getResourcesSearchByName(
+        activeMovement.name,
+        true
+      );
+      if (!resourceDocRef || !resourceSearch)
+        throw new Error("No se encontró el recurso.");
+
+      // Crear referencia al nuevo documento en "movements"
+      const movementRef = doc(collection(FirebaseDB, "movements"));
+      const newInput = { ...activeMovement, idResource: resourceSearch.id };
+      delete newInput.name; //Eliminamos el nombre para que no se guarde
+      // Actualizar cantidad del recurso
+      resourceSearch.quantity = `${
+        +resourceSearch.quantity + +newInput.quantity
+      }`;
+      delete resourceSearch.id; // Eliminar ID antes de actualizar el documento
+
+      // 🔹 Usamos batch para reducir escrituras
+      const batch = writeBatch(FirebaseDB);
+      batch.set(movementRef, newInput); // Guardar nuevo movimiento
+      batch.set(resourceDocRef, resourceSearch, { merge: true }); // Actualizar recurso
+
+      await batch.commit(); // Ejecutar batch antes de actualizar el array
+
+      // ✅ Actualizar el array de IDs en recordHistory
+      await updateDoc(resourceDocRef, {
+        recordHistory: arrayUnion(movementRef.id), // Agregar ID al array sin sobrescribir
+      });
+
+      // Actualizar Redux
+      dispatch(addNewMovement(newInput));
+      dispatch(startLoadingResources());
+
+      // Limpiar alertas
+      dispatch(setAlertMessage("Movimiento registrado correctamente"));
+      setTimeout(() => dispatch(setAlertMessage(null)), 3000);
+    } catch (error) {
+      console.error("Error al crear la entrada:", error);
+      dispatch(setErrorMessage(error.message));
+      setTimeout(() => dispatch(setErrorMessage(null)), 3000);
+    } finally {
+      dispatch(setIsLoading(false)); // Finalizar carga
+    }
+  };
+};
 
 export const startAddStockIn = (isNewResource, idResource, resourceSend) => {
   return async (dispatch, getState) => {
-
-    const {activeResource} = useSelector(state => state.resource)
+    const { activeResource } = getState().resource;
 
     const newStockIn = {
       ...resourceSend,
     };
 
-    
-
     let resourceAuxDB;
     try {
       if (!isNewResource) {
-        
-        
         const { resourceDB, resourceUpdate } = await getResourceSearch(
-          activeResource
+          idResource
         );
 
         resourceAuxDB = resourceDB; //Este aux es para mas adelante porque se borra el id
@@ -55,7 +110,7 @@ export const startAddStockIn = (isNewResource, idResource, resourceSend) => {
           Number(resourceUpdate.quantity) + Number(activeResource.quantity)
         ).toString();
 
-        const docRef = doc(FirebaseDB, `resources/${resourceUpdate.id}`);
+        const docRef = doc(FirebaseDB, `resources/${idResource}`);
 
         //quitarle el id al resource que vamos a actualizar
         delete resourceUpdate.id;
@@ -64,12 +119,10 @@ export const startAddStockIn = (isNewResource, idResource, resourceSend) => {
       }
       //*------------Creacion del stockIn----------------------------
       //referiencia al documento buscado
-      const newDocStockIn = doc(collection(FirebaseDB, `inputs`));
+      const newDocStockIn = doc(collection(FirebaseDB, `movements`));
 
       //Agregando la unidad
-      newStockIn.unit = isNewResource
-        ? resourceSend.unit
-        : resourceAuxDB.unit;
+      newStockIn.unit = isNewResource ? resourceSend.unit : resourceAuxDB.unit;
 
       //Agregando el id del recurso al que pertenecen
       newStockIn.idResource = isNewResource ? idResource : resourceAuxDB.id;
@@ -114,10 +167,6 @@ export const startAddResource = () => {
       ...activeResource,
     };
 
-    delete newResource.description;
-    delete newResource.withdrawer;
-    delete newResource.delete;
-
     try {
       //*------------Creacion del cliente----------------------------
       //referiencia al documento buscado
@@ -133,14 +182,13 @@ export const startAddResource = () => {
       //   newStockIn.id = newDocStockIn.id;
 
       //Creando recurso en redux
-      //   dispatch(addStockIn(newStockIn));
       dispatch(addNewResource(activeResource));
+
       //   Creando el stockIn
-      dispatch(startAddStockIn(true, newDocResource.id, activeResource));
+      // dispatch(startAddStockIn(true, newDocResource.id, activeResource));
 
       //borrando el active recurso
-    dispatch(clearActiveResource());
-      
+      dispatch(clearActiveResource());
 
       //Limpiar el alert
       setTimeout(() => {
@@ -163,20 +211,11 @@ export const startAddResource = () => {
 };
 
 export const startLoadingResources = () => {
-  return async (dispatch, getState) => {
+  return async (dispatch) => {
     dispatch(setIsLoading(true));
 
     try {
-      const collectionRef = collection(FirebaseDB, "resources");
-
-      let q = query(collectionRef, orderBy("name"));
-
-      const querySnapshot = await getDocs(q);
-      const resources = [];
-
-      querySnapshot.forEach((doc) => {
-        resources.push({ id: doc.id, ...doc.data() });
-      });
+      const resources = await getActiveResources();
 
       // En lugar de almacenar el snapshot completo, solo almacenamos los IDs
       dispatch(setResources(resources));
@@ -195,10 +234,41 @@ export const startLoadingResources = () => {
   };
 };
 
+
+//!ELIMINAR
+export const startSearchingResourceById = (id) => {
+  return async (dispatch, getState) => {
+    dispatch(setIsLoading(true));
+
+    try {
+      const docRef = doc(FirebaseDB, "resources", id); // Referencia al documento
+      const docSnap = await getDoc(docRef); // Obtener el documento
+
+      let docSearch;
+
+      if (docSnap.exists()) {
+        docSearch = { ...docSnap.data(), id: docSnap.id }; // Datos del recurso
+
+        dispatch(setActiveResource(docSearch));
+      } else {
+        throw Error("No se encontró el documento con ese ID.");
+      }
+    } catch (error) {
+      console.error("Error al buscar el recurso:", error);
+      dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
+
+      //Limpiar el error despues de 3 segundos
+      setTimeout(() => {
+        dispatch(setErrorMessage(null));
+      }, 3000);
+    } finally {
+      //TODO: controlar las cargas
+      dispatch(setIsLoading(false)); // Finalizar estado de carga
+    }
+  };
+};
 export const startSearchingResourceByName = (name) => {
   return async (dispatch, getState) => {
-    const { activeResource } = getState().resource;
-
     const resourcesRef = collection(FirebaseDB, "resources"); // Referencia a la colección
     const q = query(resourcesRef, where("name", "==", name)); // Consulta por el campo "name"
 
@@ -210,9 +280,6 @@ export const startSearchingResourceByName = (name) => {
 
       dispatch(
         setActiveResource({
-          ...activeResource,
-          unit: resourceSearch.unit,
-          id: resourceSearch.id,
           idResource: resourceSearch.id,
         })
       );
@@ -242,35 +309,67 @@ export const startSearchingInputAndOutputById = (id, isInput = true) => {
   };
 };
 
-export const startLoadingInputs = () => {
+export const startLoadMovementsWithResources = () => {
   return async (dispatch) => {
     dispatch(setIsLoading(true));
 
     try {
-      const collectionRef = collection(FirebaseDB, "inputs");
+      // 🔹 1. Obtener todos los movimientos
+      const movementsRef = collection(FirebaseDB, "movements");
+      const movementsSnap = await getDocs(movementsRef);
 
-      let q = query(collectionRef, orderBy("date", "asc"));
+      if (movementsSnap.empty)
+        throw new Error("No hay movimientos registrados.");
 
-      const querySnapshot = await getDocs(q);
-      const inputs = [];
+      let movementsData = movementsSnap.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-      querySnapshot.forEach((doc) => {
-        inputs.push({ id: doc.id, ...doc.data() });
+      // 🔹 2. Extraer los resourceId únicos
+      const resourceIds = [
+        ...new Set(movementsData.map((mov) => mov.idResource).filter(Boolean)),
+      ];
+
+      // 🔹 3. Si no hay recursos, solo guardamos los movimientos
+      if (resourceIds.length === 0) {
+        dispatch(setMovements(movementsData));
+        return;
+      }
+
+      // 🔹 4. Obtener solo `unit` y `name` de los recursos en una sola consulta
+      const resourcesRef = collection(FirebaseDB, "resources");
+      const resourcesQuery = query(
+        resourcesRef,
+        where("__name__", "in", resourceIds)
+      );
+      const resourcesSnap = await getDocs(resourcesQuery);
+
+      // 🔹 5. Crear un mapa con solo `name` y `unit`
+      const resourcesMap = {};
+      resourcesSnap.docs.forEach((doc) => {
+        const { name, unit } = doc.data(); // Solo tomamos `name` y `unit`
+        resourcesMap[doc.id] = { name, unit };
       });
 
-      // En lugar de almacenar el snapshot completo, solo almacenamos los IDs
-      dispatch(setInputs(inputs));
-    } catch (error) {
-      console.error("Error al cargar los inputs:", error);
-      dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
+      // 🔹 6. Fusionar movimientos con `resource.name` y `resource.unit`
+      movementsData = movementsData.map((mov) => ({
+        ...mov,
+        resource: resourcesMap[mov.idResource] || {
+          name: "Desconocido",
+          unit: "N/A",
+        },
+      }));
 
-      //Limpiar el error despues de 3 segundos
-      setTimeout(() => {
-        dispatch(setErrorMessage(null));
-      }, 3000);
+      console.log(movementsData);
+
+      // 🔹 7. Guardar en Redux
+      dispatch(setMovements(movementsData));
+    } catch (error) {
+      console.error("Error al cargar movimientos:", error);
+      dispatch(setErrorMessage(error.message));
     } finally {
-      //TODO: controlar las cargas
-      dispatch(setIsLoading(false)); // Finalizar estado de carga
+      dispatch(setIsLoading(false));
     }
   };
 };
@@ -366,7 +465,7 @@ export const startLoadingOutputs = () => {
       });
 
       // En lugar de almacenar el snapshot completo, solo almacenamos los IDs
-      dispatch(setOutputs(outputs));
+      dispatch(setMovements(outputs));
     } catch (error) {
       console.error("Error al cargar los outputs:", error);
       dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
@@ -407,7 +506,7 @@ export const startLoadingInputsAndOutputsDate = (
         ...doc.data(),
       }));
 
-      dispatch(setInputs(results));
+      dispatch(setMovements(results));
     } catch (error) {
       console.error("Error al cargar los inputs:", error);
       dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
@@ -457,6 +556,81 @@ export const startDeletingResources = (resourcesIds) => {
       await batch.commit(); // 🔹 Ejecutar todas las actualizaciones y eliminaciones
     } catch (error) {
       console.error("Error al eliminar los recurso:", error);
+      dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
+
+      //Limpiar el error despues de 3 segundos
+      setTimeout(() => {
+        dispatch(setErrorMessage(null));
+      }, 3000);
+    } finally {
+      //TODO: controlar las cargas
+      dispatch(setIsLoading(false)); // Finalizar estado de carga
+    }
+  };
+};
+
+export const startSearchingMovementById = (id) => {
+  return async (dispatch, getState) => {
+    dispatch(setIsLoading(true)); // Activar estado de carga
+
+    try {
+      const { docSearch } = await getSearchMovement(id);
+      dispatch(setActiveMovement(docSearch));
+    } catch (error) {
+      console.error("Error al cargar el recurso:", error);
+      dispatch(setErrorMessage(error.message));
+
+      setTimeout(() => {
+        dispatch(setErrorMessage(null));
+      }, 3000);
+    } finally {
+      dispatch(setIsLoading(false)); // Finalizar estado de carga
+    }
+  };
+};
+
+export const startLoadMovementsOfResource = (id) => {
+  return async (dispatch) => {
+    dispatch(setIsLoading(true));
+
+    try {
+
+       // 1. Obtener el documento de resource
+       const { resourceDB } = await getResourceById(id);
+
+
+       const recordHistory = resourceDB.recordHistory || [];
+ 
+       if (recordHistory.length === 0) {
+         return [];
+       }
+ 
+       // 2. Agrupar en bloques de máximo 10 IDs (límite de Firestore)
+       const chunkedIds = [];
+       for (let i = 0; i < recordHistory.length; i += 10) {
+         chunkedIds.push(recordHistory.slice(i, i + 10));
+       }
+ 
+       // 3. Hacer las mínimas peticiones posibles a Firestore
+       const movements = [];
+ 
+       for (const chunk of chunkedIds) {
+         const q = query(collection(FirebaseDB, 'movements'), where('__name__', 'in', chunk));
+         const querySnapshot = await getDocs(q);
+ 
+         querySnapshot.forEach(doc => {
+           movements.push({
+             id: doc.id,
+             ...doc.data()
+           });
+         });
+       }
+       
+       
+       dispatch(setMovements(movements));
+
+    } catch (error) {
+      console.error("Error al cargar los outputs:", error);
       dispatch(setErrorMessage(error.message)); // Guardar el error en Redux para mostrarlo en la UI
 
       //Limpiar el error despues de 3 segundos

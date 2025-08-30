@@ -20,6 +20,7 @@ import { showResource } from "../store/resource/resourceSlice";
 import {
   startDeletingResources,
   startLoadingInputsAndOutputsDate,
+  startLoadingResources,
   startSearchingInputAndOutputById,
 } from "../store/resource/thunks";
 import { getDisplayUnit } from "../helpers/getUnitToShow";
@@ -42,9 +43,12 @@ export const TableListComponent = ({ array = [], is, onOpenDrawerInfo }) => {
 
     dispatch(startLoadingInputsAndOutputsDate(start, end, is));
   };
+  console.log(selectedTable);
+  
 
   const onDeleteSelected = () => {
     dispatch(startDeletingResources(selectedTable));
+    dispatch(startLoadingResources());
   };
 
   const onSelectionChange = (e) => {

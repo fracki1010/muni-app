@@ -41,6 +41,7 @@ const initialForm = {
   description: "",
   withdrawer: "not-output",
   delete: false,
+  status: 'active'
 };
 
 export const DrawerInputComponent = ({

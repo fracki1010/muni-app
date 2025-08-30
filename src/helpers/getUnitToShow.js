@@ -1,4 +1,9 @@
 export const getDisplayUnit = (unit) => {
+
+  if ( !unit ) {
+    return;
+  }
+
     const unitMap = {
       unidad: "u",
       caja: "cj",

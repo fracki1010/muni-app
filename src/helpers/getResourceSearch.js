@@ -2,13 +2,13 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { useSelector } from "react-redux";
 import { FirebaseDB } from "../firebase/config";
 
-export const getResourceSearch = async (activeResource) => {
+export const getResourceSearch = async (id) => {
 
 
   let resourceUpdate;
   let resourceDB;
   const resourcesRef = collection(FirebaseDB, "resources"); // Referencia a la colección
-  const q = query(resourcesRef, where("name", "==", activeResource.name)); // Consulta por el campo "name"
+  const q = query(resourcesRef, where("name", "==", id)); // Consulta por el campo "name"
 
   const querySnapshot = await getDocs(q); // Ejecuta la consulta
 
